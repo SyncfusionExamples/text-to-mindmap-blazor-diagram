@@ -41,7 +41,7 @@ The samples require the following requirements to run.
    * Editing node content
    * Deleting an existing node
    <img width="980" alt="image" src="https://github.com/user-attachments/assets/2432b8f4-31c1-4790-928e-cc1839ce3f09">
-8. You can also perform the same editing tasks using the right-side outline window. After making your edits, click the `Generate Diagram` button.
+8. You can also perform the same editing tasks using the left-side outline window. After making your edits, click the `Generate Diagram` button.
 
    <img width="209" alt="image" src="https://github.com/user-attachments/assets/f5c87ba4-8a44-4154-9b9b-e9fbb82a5853">
 
