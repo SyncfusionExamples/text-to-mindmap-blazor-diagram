@@ -1,4 +1,5 @@
 @using Syncfusion.Blazor.Diagram
+@using Syncfusion.Blazor.Spinner
 @using Syncfusion.Blazor.Buttons
 @using Syncfusion.Blazor.Inputs
 @using System.Collections.ObjectModel
@@ -66,6 +67,8 @@
     .e-dialog .e-dlg-header-content {
         height: auto;
     }
+
+  
 </style>
 
 <div class="db-diagram-container" style="display: flex; ">
@@ -119,22 +122,28 @@
             
             <div style="display: flex; flex: 95%; margin-top:20px;">
                 <SfTextBox @bind-Value="@DiagramOpenAIServicesRef.OpenAIPrompt" CssClass="db-openai-textbox" Height="32px" Placeholder="Please enter your prompt for generating a mindmap diagram data source..."></SfTextBox>
-                <svg id="db-send" xmlns="http://www.w3.org/2000/svg"
-                     viewBox="0 0 24 24"
-                     width="24px"
-                     height="24px"
-                     fill="#1679AB" style="margin: auto; margin-left: 10px;" @onclick="@DiagramOpenAIServicesRef.FineTunedAIResponse">
-                    <path d="M1.5 21.49L23.5 12 1.5 2.51 1.5 10.99 17.5 12 1.5 13.01z" />
-                </svg>
+                <div >
+                    <svg xmlns="http://www.w3.org/2000/svg"
+                         viewBox="0 0 24 24"
+                         width="24px"
+                         height="24px"
+                         fill="#1679AB" style="margin: auto; margin-left: 10px;" @onclick="@DiagramOpenAIServicesRef.FineTunedAIResponse">
+                        <path d="M1.5 21.49L23.5 12 1.5 2.51 1.5 10.99 17.5 12 1.5 13.01z" />
+                    </svg>
+                </div>
             </div>
         </Content>
     </DialogTemplates>
     <DialogEvents OnOpen="@DialogOpen" Closed="@DialogClose"></DialogEvents>
 </SfDialog>
-
+<div>
+    <SfSpinner @ref="@spinner" Label="Generating mindmap...." Size="50">
+    </SfSpinner>
+</div>
 
 @code {
     #pragma warning disable BL0005
+    public SfSpinner spinner;
     public bool ShowAIAssistDialog = false;
     public void OnFabClicked()
     {

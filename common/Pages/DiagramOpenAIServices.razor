@@ -24,25 +24,33 @@
     /// Boolean for checking whether to render from the data source.
     /// </summary>
     public bool ShouldRenderFromDataSource = false;
+
     /// <summary>
     ///  Get the fine-tuned AI response from OpenAI and generate the diagram
     /// </summary>
     public async Task FineTunedAIResponse()
     {
-        Parent.ShouldRefresh = false;        
-        ShouldRenderFromDataSource = true;
-        string result = string.Empty;
-        result = await ChatGptService.GetResponseFromOpenAI(OpenAIPrompt);
-        string[] filteredData = result.Split(new[] { "\n", "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
-        filteredData = filteredData.Where(line => !string.IsNullOrWhiteSpace(line)).ToArray();
-        Parent.DiagramTextOverviewRef.DataSourceTextValue = string.Join("\n", filteredData);
-        DataCollection = filteredData;
-        await GenerateDiagram();
-        Parent.ShouldRefresh = true;
-        Parent.ShowAIAssistDialog = false;
-        Parent.StateChanged();
-        Parent.DiagramTextOverviewRef.RefreshTextBox();
-        ShouldRenderFromDataSource = false;
+        if (!String.IsNullOrEmpty(OpenAIPrompt))
+        {
+            Parent.ShouldRefresh = true;
+            Parent.ShowAIAssistDialog = false;
+            Parent.StateChanged();
+            await Parent.spinner.ShowAsync();
+            Parent.ShouldRefresh = false;
+            ShouldRenderFromDataSource = true;
+            string result = string.Empty;
+            result = await ChatGptService.GetResponseFromOpenAI(OpenAIPrompt);
+            string[] filteredData = result.Split(new[] { "\n", "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
+            filteredData = filteredData.Where(line => !string.IsNullOrWhiteSpace(line)).ToArray();
+            Parent.DiagramTextOverviewRef.DataSourceTextValue = string.Join("\n", filteredData);
+            DataCollection = filteredData;
+            await GenerateDiagram();
+            Parent.ShouldRefresh = true;
+            Parent.StateChanged();
+            Parent.DiagramTextOverviewRef.RefreshTextBox();
+            ShouldRenderFromDataSource = false;
+            await Parent.spinner.HideAsync();
+        }
     }
     /// <summary>
     /// Represents hierarchical data with properties for identification, text content, branch type, level character, and child nodes.
