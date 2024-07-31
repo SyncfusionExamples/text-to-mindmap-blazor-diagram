@@ -1,0 +1,82 @@
+﻿@using Syncfusion.Blazor.Buttons
+@using Syncfusion.Blazor.Inputs
+@inject IJSRuntime JS
+@namespace MindMap
+ 
+<div style="width: 250px; height: 100%; border: 1px solid #ccc; flex-direction: column; display: @isVisible">
+    <SfTextBox @ref="@TextBox" CssClass="db-textbox-height" ID="textbox" Height="100%" @bind-Value="@DataSourceTextValue" Enabled="true" Multiline="true" style="border: 1px solid #ccc; resize: none; background:white;"></SfTextBox>
+    <div id='ChildAdd' class="db-generate-diagram" style="display: flex; justify-content: center; align-items: center; padding: 2px 0px;">
+        <SfButton IsPrimary="true" CssClass="e-primary" @onclick="@GenerateDiagram" style="width: 98%; border-radius: 8px;">Generate Diagram</SfButton>
+    </div>
+</div>
+
+@code {
+    /// <summary>
+    /// Reference for parent component.
+    /// </summary>
+    public DiagramMainContent Parent;
+    /// <summary>
+    /// Boolean value to show or hide the text box component.
+    /// </summary>
+    public bool CanShowTextBox = true;
+    /// <summary>
+    /// Specifies the visibility of text box component.
+    /// </summary>
+    private string isVisible = "flex";
+    /// <summary>
+    /// Reference for TextBox component.
+    /// </summary>
+    public SfTextBox TextBox;
+    /// <summary>
+    /// Datasource value of text box component.
+    /// </summary>
+    public string DataSourceTextValue = "Creativity";
+
+    /// <summary>
+    /// Update the text value of text box component.
+    /// </summary>
+    [JSInvokable]
+    public void UpdateTextValue(string value)
+    {
+        DataSourceTextValue = value;
+    }
+
+    /// <summary>
+    /// Refresh the text box component.
+    /// </summary>
+    public void RefreshTextBox()
+    {
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Update the visibility of text box component.
+    /// </summary>
+    public void UpdateTextBoxVisibility()
+    {
+        isVisible = CanShowTextBox ? "flex" : "none";
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if(firstRender)
+        {
+            await JS.InvokeVoidAsync("preventTabDefault", "textbox", DotNetObjectReference.Create(this));
+        }
+    }
+
+    /// <summary>
+    /// Generate the diagram based on the text value.
+    /// </summary>
+    public async Task GenerateDiagram()
+    {
+        Parent.ShouldRefresh = false;
+        Parent.DiagramOpenAIServicesRef.ShouldRenderFromDataSource = true;
+        Parent.DiagramOpenAIServicesRef.DataCollection = DataSourceTextValue.Split(new[] { "\n", "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
+        Parent.DiagramOpenAIServicesRef.DataCollection = Parent.DiagramOpenAIServicesRef.DataCollection.Where(line => !string.IsNullOrWhiteSpace(line)).ToArray();
+        await Parent.DiagramOpenAIServicesRef.GenerateDiagram();
+        Parent.DiagramOpenAIServicesRef.ShouldRenderFromDataSource = false;
+        Parent.ShouldRefresh = true;
+        Parent.StateChanged();
+    }
+}

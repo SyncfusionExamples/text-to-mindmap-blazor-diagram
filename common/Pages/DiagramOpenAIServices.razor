@@ -1,0 +1,318 @@
+﻿@using Syncfusion.Blazor.Inputs
+@using Syncfusion.Blazor.Buttons
+@using System;
+@using Syncfusion.Blazor.Diagram
+@inject IJSRuntime JS
+@inject OpenAIService ChatGptService
+@namespace MindMap
+
+
+@code {
+    /// <summary>
+    /// Represents the OpenAI prompt.
+    /// </summary>
+    public string OpenAIPrompt;
+    /// <summary>
+    /// Collection of data.
+    /// </summary>
+    public string[] DataCollection;
+    /// <summary>
+    /// Parent component reference.
+    /// </summary>
+    public DiagramMainContent Parent;
+    /// <summary>
+    /// Boolean for checking whether to render from the data source.
+    /// </summary>
+    public bool ShouldRenderFromDataSource = false;
+    /// <summary>
+    ///  Get the fine-tuned AI response from OpenAI and generate the diagram
+    /// </summary>
+    public async Task FineTunedAIResponse()
+    {
+        Parent.ShouldRefresh = false;        
+        ShouldRenderFromDataSource = true;
+        string result = string.Empty;
+        result = await ChatGptService.GetResponseFromOpenAI(OpenAIPrompt);
+        string[] filteredData = result.Split(new[] { "\n", "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
+        filteredData = filteredData.Where(line => !string.IsNullOrWhiteSpace(line)).ToArray();
+        Parent.DiagramTextOverviewRef.DataSourceTextValue = string.Join("\n", filteredData);
+        DataCollection = filteredData;
+        await GenerateDiagram();
+        Parent.ShouldRefresh = true;
+        Parent.ShowAIAssistDialog = false;
+        Parent.StateChanged();
+        Parent.DiagramTextOverviewRef.RefreshTextBox();
+        ShouldRenderFromDataSource = false;
+    }
+    /// <summary>
+    /// Represents hierarchical data with properties for identification, text content, branch type, level character, and child nodes.
+    /// </summary>
+    public class HierarchyData
+    {
+        public string ID { get; set; }
+        public string Text { get; set; }
+        public BranchType Branch { get; set; }
+        public char LevelChar { get; set; }
+        public List<HierarchyData> Children { get; set; } = new List<HierarchyData>();
+        public double CurrentLevel { get; set; }
+    }
+
+    /// <summary>
+    /// Checks whether the provided string contains the specified character.
+    /// </summary>
+    private bool HasCharacter(string value, char charSign)
+    {
+        value = value.TrimStart();
+        bool hasSignBeforeWord = false;
+        for (int i = 0; i < value.Length; i++)
+        {
+            if (value[i] == charSign)
+            {
+                hasSignBeforeWord = true;
+            }
+            else
+            {
+                break;
+            }
+        }
+        return hasSignBeforeWord;
+    }
+
+    /// <summary>
+    /// Counts the number of occurrences of a specified character in the provided string.
+    /// </summary>
+    private int CountCharacter(string value, char charSign)
+    {
+        value = value.TrimStart();
+        int count = 0;
+        for (int i = 0; i < value.Length; i++)
+        {
+            if (value[i] == charSign)
+            {
+                count++;
+            }
+            else
+            {
+                break;
+            }
+        }
+        return count;
+    }
+
+    /// <summary>
+    /// Generate the diagram from the text data.
+    /// </summary>
+    public async Task GenerateDiagram()
+    {
+        string[] words = DataCollection.Where(s => !string.IsNullOrWhiteSpace(s)).ToArray();
+        Stack<HierarchyData> dataStack = new Stack<HierarchyData>();
+        HierarchyData root = null;
+
+        //Dictionary to store the space and its levels
+        Dictionary<string, double> spaceAndItsLevels = new Dictionary<string, double>();
+        double startLevel = 1;
+
+        if (words.Length > 0)
+        {
+            Parent.DataSource.Clear();
+            for (int index = 0; index < words.Length; index++)
+            {
+                string word = words[index];
+                int level = 0;
+                string text = string.Empty; char levelChar = ' ';
+                double leadingWhiteSpace = ChatGptService.CountLeadingSpaces(word);
+
+                if (word.Length > 0 && ((char.IsWhiteSpace(word[0]) && index > 0) || (leadingWhiteSpace == 0 && !word.StartsWith('+') && !word.StartsWith('-'))))
+                {
+                    if (spaceAndItsLevels.ContainsKey(leadingWhiteSpace.ToString()))
+                    {
+                        for (int i = spaceAndItsLevels.Count - 1; i >= 0; i--)
+                        {
+                            KeyValuePair<string, double> currentSpace = spaceAndItsLevels.ElementAt(i);
+                            if (Convert.ToDouble(currentSpace.Key) > leadingWhiteSpace)
+                            {
+                                spaceAndItsLevels.Remove(currentSpace.Key);
+                            }
+                            else if (Convert.ToDouble(currentSpace.Key) < leadingWhiteSpace)
+                            {
+                                spaceAndItsLevels.Add(leadingWhiteSpace.ToString(), (currentSpace.Value + 1));
+                                level = Convert.ToInt32(currentSpace.Value) + 1;
+                                break;
+                            }
+                            else if (Convert.ToDouble(currentSpace.Key) == leadingWhiteSpace)
+                            {
+                                level = Convert.ToInt32(currentSpace.Value);
+                                break;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        if (spaceAndItsLevels.Count == 0)
+                        {
+                            spaceAndItsLevels.Add(leadingWhiteSpace.ToString(), startLevel);
+                            level = Convert.ToInt32(startLevel);
+                        }
+                        else
+                        {
+                            for (int i = spaceAndItsLevels.Count - 1; i >= 0; i--)
+                            {
+                                KeyValuePair<string, double> currentElement = spaceAndItsLevels.ElementAt(i);
+                                if (Convert.ToDouble(currentElement.Key) > leadingWhiteSpace)
+                                {
+                                    spaceAndItsLevels.Remove(currentElement.Key);
+                                }
+                                else
+                                {
+                                    KeyValuePair<string, double> lastElement = spaceAndItsLevels.Last();
+                                    spaceAndItsLevels.Add(leadingWhiteSpace.ToString(), lastElement.Value + 1);
+                                    break;
+                                }
+
+                            }
+                            level = Convert.ToInt32(spaceAndItsLevels.Last().Value);
+                        }
+                    }
+
+
+                    text = word.Trim().TrimStart('+', '-'); levelChar = ' ';
+                }
+                else if (HasCharacter(word, '+'))
+                {
+                    level = CountCharacter(word, '+');
+                    text = word.Trim('+').Trim(); levelChar = '+';
+                }
+                else if (HasCharacter(word, '-'))
+                {
+                    level = CountCharacter(word, '-');
+                    text = word.Trim('-').Trim(); levelChar = '-';
+                }
+                HierarchyData currentItem = new HierarchyData { ID = RandomId(), Text = text, LevelChar = levelChar };
+                currentItem.CurrentLevel = index == 0 ? 0 : level - 1;
+                if (dataStack.Count > 0)
+                {
+                    while (dataStack.Count >= level)
+                    {
+                        dataStack.Pop();
+                    }
+
+                    if (dataStack.Count > 0)
+                    {
+                        dataStack.Peek().Children.Add(currentItem);
+                    }
+                }
+                else
+                {
+                    root = currentItem;
+                }
+                dataStack.Push(currentItem);
+            }
+
+            //Create dataSource
+            HierarchyData data = dataStack.ElementAt(dataStack.Count - 1);
+            Parent.DataSource.Add(new DataSourceDetails() { ID = data.ID, Parent = "", Children = data.Text, Branch = BranchType.Root, CurrentLevel = data.CurrentLevel.ToString() });
+
+            CreateDataSource(data.Children, data);
+
+            UpdateBranch(Parent.DataSource);
+
+            SfDiagramComponent Diagram = Parent.Diagram;
+            Diagram.Clear();
+            Parent.nodes.Clear();
+            Parent.connectors.Clear();
+            await Parent.Diagram.RefreshDataSource();
+            Parent.nodes = Diagram.Nodes;
+            Parent.connectors = Diagram.Connectors;
+        }
+    }
+
+    /// <summary>
+    /// Refresh the OpenAI prompt
+    /// </summary>
+    public void RefreshPrompt(){
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Update branch for the data source
+    /// </summary>
+    /// <param name="DataSource"></param>
+    private void UpdateBranch(List<DataSourceDetails> DataSource)
+    {
+        string root = DataSource[0].Children;
+
+        foreach (DataSourceDetails dataSource in DataSource)
+        {
+            if (dataSource.LevelChar == ' ')
+            {
+                UpdateBranchForEmptySpace(DataSource);
+                return;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Updates the branch details for the data sources that contain empty spaces.
+    /// </summary>
+    private void UpdateBranchForEmptySpace(List<DataSourceDetails> DataSource)
+    {
+        if (DataSource != null && DataSource.Count > 0)
+        {
+            string root = DataSource[0].ID;
+            BranchType currentBranchSequence = BranchType.Left;
+            for (int i = 1; i < DataSource.Count; i++)
+            {
+                DataSourceDetails dataSource = DataSource[i];
+                if (dataSource.Parent == root)
+                {
+                    if (i == 1)
+                        dataSource.Branch = currentBranchSequence;
+                    else
+                    {
+                        dataSource.Branch = currentBranchSequence == BranchType.Left ? BranchType.Right : BranchType.Left;
+                        currentBranchSequence = dataSource.Branch;
+                    }
+                }
+                else
+                {
+                    DataSourceDetails parentData = DataSource?.FirstOrDefault(data => data.ID == dataSource.Parent);
+                    if (parentData != null)
+                        dataSource.Branch = parentData.Branch;
+                }
+            }
+        }
+    }
+    private void CreateDataSource(List<HierarchyData> data, HierarchyData parent)
+    {
+        int index = 0;
+        while (index < data.Count)
+        {
+            HierarchyData child = data[index];
+            Parent.DataSource.Add(new DataSourceDetails() { ID = child.ID, Parent = parent.ID, Children = child.Text, LevelChar = child.LevelChar, CurrentLevel = child.CurrentLevel.ToString() });
+            CreateDataSource(child.Children, child);
+            index++;
+        }
+    }
+    /// <summary>
+    /// Generates a random id
+    /// </summary>
+    private static string RandomId()
+    {
+        Random random = new Random();
+        const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXTZabcdefghiklmnopqrstuvwxyz";
+        return new string(Enumerable.Repeat(chars, 5)
+          .Select(s => s[random.Next(s.Length)]).ToArray());
+    }
+    /// <summary>
+    /// Represents the details of a data source.
+    /// </summary>
+    public class DataSourceDetails
+    {
+        public string ID { get; set; }
+        public string Parent { get; set; }
+        public string Children { get; set; }
+        public BranchType Branch { get; set; }
+        public char LevelChar { get; set; }
+        public string CurrentLevel { get; set; }
+    }
+}

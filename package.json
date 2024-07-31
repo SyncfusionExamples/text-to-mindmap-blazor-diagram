@@ -1,0 +1,16 @@
+{
+	"name": "mind-map",
+	"version": "1.0.0",
+	"description": "Blazor Showcase Samples - Mindmap",
+	"author": "Syncfusion Inc.",
+	"license": "SEE LICENSE IN license",
+	"keywords": [
+		"blazor-showcase-mindmap",
+		"showcase-mindmap",
+		"mindmap"
+	],
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/essential-studio/blazor-showcase-mindmap.git"
+	}
+}
